@@ -175,7 +175,7 @@ def main():
             # detect new FVGs
             detected = detect_fvg(df, ticker)
 
-            # dedupe by FID (python set) to avoid any Pandas truthiness issues
+            # dedupe by FID
             fid_set = set(tracker["FID"].astype(str)) if not tracker.empty else set()
             to_add = [g for g in detected if g["FID"] not in fid_set]
             if to_add:
@@ -222,20 +222,27 @@ def main():
     tracker = pd.DataFrame(open_rows_all, columns=COLUMNS)
     save_tracker(tracker)
 
-    # write latest-bar breaches
+    # write latest-bar breaches (only last breach per ticker, sorted by Type then Ticker)
     if breaches_today:
-        pd.DataFrame(breaches_today).to_csv("breaches_today.csv", index=False)
-        print(f"\nFound {len(breaches_today)} breach(es) on the latest bar. Saved to breaches_today.csv")
+        df_today = pd.DataFrame(breaches_today)
+        df_today = (
+            df_today.sort_values(["Ticker", "BreachTS"])
+                    .groupby("Ticker", as_index=False)
+                    .tail(1)
+                    .sort_values(["Type", "Ticker"])
+        )
+        df_today.to_csv("breaches_today.csv", index=False)
+        print(f"\nFound {len(df_today)} breach(es) on the latest bar. Saved to breaches_today.csv")
     else:
         pd.DataFrame(columns=[
             "Ticker","Type","GapLow","GapHigh","Start","End","BreachTS","BreachDate","FID"
         ]).to_csv("breaches_today.csv", index=False)
         print("\nNo breaches on the latest bar.")
 
-    # full breach log for the run
-    if all_breaches:
-        pd.DataFrame(all_breaches).to_csv("breaches_log.csv", index=False)
-        print(f"Logged {len(all_breaches)} total breach(es) this run to breaches_log.csv")
+    # full breach log for the run (all breaches, chronological)
+    #if all_breaches:
+     #   pd.DataFrame(all_breaches).to_csv("breaches_log.csv", index=False)
+      #  print(f"Logged {len(all_breaches)} total breach(es) this run to breaches_log.csv")
 
 if __name__ == "__main__":
     main()
